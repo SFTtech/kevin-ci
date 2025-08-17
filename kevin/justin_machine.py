@@ -52,20 +52,26 @@ class JustinMachine(Container):
     def config(cls, machine_id, cfgdata, cfgpath):
         raise Exception("config() on the VM controller called")
 
+    def _report_error(self, msg: messages.Message, step: str):
+        if isinstance(msg, messages.Error):
+            raise MachineError(f"Failed to {step}: {msg.msg}")
+        else:
+            raise MachineError(f"Failed to {step}, got unexpected answer: {msg}")
+
     async def prepare(self, manage=False):
         msg = await self.justin.query(messages.Prepare(run_id=self.run_id,
                                                        manage=manage))
         if not isinstance(msg, messages.OK):
-            raise MachineError(f"Failed to prepare: {msg.msg}")
+            self._report_error(msg, "prepare machine")
 
     async def launch(self):
         msg = await self.justin.query(messages.Launch(run_id=self.run_id))
         if not isinstance(msg, messages.OK):
-            raise MachineError(f"Failed to launch machine: {msg.msg}")
+            self._report_error(msg, "launch machine")
 
         msg = await self.justin.query(messages.GetConnectionInfo(run_id=self.run_id))
         if not isinstance(msg, messages.ConnectionInfo):
-            raise MachineError(f"Failed to get connection info: {msg.msg}")
+            self._report_error(msg, "get machine connection info")
 
         # this is used to connect to the remote container instance!
         self.ssh_host = msg.ssh_host
@@ -84,12 +90,12 @@ class JustinMachine(Container):
     async def terminate(self):
         msg = await self.justin.query(messages.Terminate(run_id=self.run_id))
         if not isinstance(msg, messages.OK):
-            raise MachineError(f"Failed to kill machine: {msg.msg}")
+            self._report_error(msg, "kill machine")
 
     async def cleanup(self):
         msg = await self.justin.query(messages.Cleanup(run_id=self.run_id))
         if not isinstance(msg, messages.OK):
-            raise MachineError(f"Failed to clean up: {msg.msg}")
+            self._report_error(msg, "clean up machine")
         return msg
 
     async def wait_for_ssh_port(self, timeout=60, retry_delay=0.2,
@@ -181,6 +187,6 @@ class JustinMachine(Container):
         msg = await self.justin.query(messages.ShutdownWait(run_id=self.run_id,
                                                           timeout=timeout))
         if not isinstance(msg, messages.OK):
-            raise MachineError(f"Failed to wait for shutdown: {msg.msg}")
+            self._report_error(msg, "wait for machine shutdown")
 
         return msg

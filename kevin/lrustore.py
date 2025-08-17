@@ -18,6 +18,15 @@ class LRUStore(Generic[K, V]):
                  delete_check: delete_check_t[V] | None = None,
                  revive: revive_t[V] | None = None) -> None:
         """
+        A caching structure, to store elements and keep them alive until the maximum element number
+        is reached, then drop the oldest accessed/stored item.
+        Behaves like a dict.
+
+        K: key type
+        V: value type
+
+        when using get(), the item is bumped to the front again.
+
         max_size:
             number of entries until the oldest gets deleted
         max_killmap_size:
@@ -63,13 +72,10 @@ class LRUStore(Generic[K, V]):
 
         if len(self._map) > self._max_size:
             delkey, delval = self._map.popitem(last=False)
-            print("xxx deleting")
             if self._delcheck:
-                print("xxx in killmap")
                 # if deletion should be postponed, hold reference in separate killmap
                 def delete_item():
                     del self._killmap[delkey]
-                    print("xxx killed from killmap")
                 if not self._delcheck(delval, delete_item):
                     self._killmap[delkey] = delval
 
